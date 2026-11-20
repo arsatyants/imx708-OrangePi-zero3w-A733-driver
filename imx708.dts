@@ -1,0 +1,27 @@
+/*
+ * Orange Pi Zero 3W (Allwinner A733): use the IMX708 (Raspberry Pi Camera Module 3)
+ * instead of the IMX219 on both camera slots. Only the sensor name and I2C address change;
+ * power-enable GPIO, CCI bus, MCLK and MIPI setup stay as in the board DT.
+ *   sensor0: CCI 11, power PE6  -> "imx708"
+ *   sensor2: CCI 9,  power PE10 -> "imx708_2"
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	fragment@0 {
+		target = <&sensor0>;
+		__overlay__ {
+			sensor0_mname = "imx708";
+			sensor0_twi_addr = <0x34>;	/* 0x1a << 1 */
+		};
+	};
+
+	fragment@1 {
+		target = <&sensor2>;
+		__overlay__ {
+			sensor2_mname = "imx708_2";
+			sensor2_twi_addr = <0x34>;
+		};
+	};
+};
