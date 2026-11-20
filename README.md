@@ -165,6 +165,8 @@ lets libisp persist its AE context to `/mnt` between runs.
 |---|---|
 | `sensor_s_stream` never logged, no chip ID | camera cable orientation (Zero 3W CSI is 90° to the sensor), and check the overlay actually applied: `dmesg \| grep imx708` |
 | image dark, Y min ≈ 34 | you bypassed the ISP — capture via `isp_capture`, not ffmpeg/v4l2-ctl |
+| `unable to subscribe to tdm event: Inappropriate ioctl for device (25)`, then `AEWB: stats error, skipping buffer` | the ISP server gets no 3A statistics: AE pins at the mode's max exposure and AWB sits on the tuning's default gains (washed-out, cool colors). Observed on kernel 6.6.98-sun60iw2 with libawispapi-isp-602 — likely a VIN ioctl version mismatch. Workaround: software color correction on capture (see the paired `a733-detection` repo, `configs/wb.json`), or fix the tdm-event ioctl in the VIN driver |
+| image looks upside-down or mirrored | module parameter `flip=0..3` (0 = none, 3 = rotate 180°). Set at module load — the parameter file is read-only at runtime with this kernel; software `CAM_ROT=180` in the detection pipeline is an alternative |
 | `isp0 the bayer format is changed when d3d is open`, `isp0 width error` | another client touched the vin pipeline with a different input/format; close everything ISP-related (`pkill -f isp_capture`), or `sudo modprobe -r vin_v4l2 imx708` + re-probe, or reboot |
 | `VIN` pipeline errors on plain `S_FMT` (`vin_pipeline_try_format` crash) | expected on this kernel without ISP setup; use the ISP path |
 | magenta cast | ISP tuning fell back to `ov13850`; check that the `parser_ini_info` interpose is active (built with `-rdynamic`) |
@@ -174,8 +176,14 @@ lets libisp persist its AE context to `/mnt` between runs.
 
 - Board: Orange Pi Zero 3W, 12 GB LPDDR5, kernel `6.6.98-sun60iw2` (vendor image, Debian 12 bookworm)
 - Camera: Raspberry Pi Camera Module 3 (IMX708, wide), 2-lane CSI
-- Driver: loaded from `/lib/modules`, AE via userspace ISP works; H.264 via
-  `opi_cam_vid.py` + libx264 verified
+- Driver: loaded from `/lib/modules`, capture via `isp_capture` verified end-to-end
+  (valid 1920x1080 NV12 frames with ISP AE, ffmpeg H.264 pipe verified)
+- Live NPU detection on top of this capture stack: ~6-8 FPS end-to-end in the
+  paired [a733-detection](https://github.com/arsatyants/a733-detection) repo
+- Known limitation (see troubleshooting): the ISP `tdm` 3A statistics event does
+  not subscribe on this kernel/libisp pair, so AE pins at max exposure in dim
+  light and AWB keeps default gains — colors are washed-out/cool; the paired
+  repo applies a measured software correction
 - Not working yet: autofocus, sensor-native HDR/PDAF, imx708-specific ISP tuning
 
 ## Credits and licensing
